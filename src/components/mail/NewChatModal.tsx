@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { mailApi, MailContact } from '../../lib/mailApi';
+import { getUserOrContactName, formatPhoneNumber, cleanEmailDisplay } from '../../lib/formatters';
+import { useAuth } from '../../context/AuthContext';
+import { encryptMessage } from '../../lib/crypto';
 
 interface NewChatModalProps {
   isOpen: boolean;
@@ -14,6 +17,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   onClose,
   onChatCreated,
 }) => {
+  const { userSecretKey, userPublicKey } = useAuth();
   const [recipientInput, setRecipientInput] = useState('');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
@@ -77,11 +81,24 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
     setSendError(null);
 
     try {
+      let outgoingText = message.trim();
+      let recipientPubKey = verifiedUser?.publicKey;
+      if (!recipientPubKey && recipientInput.trim()) {
+        try {
+          const res = await mailApi.getRecipientKey(recipientInput.trim(), token);
+          recipientPubKey = res.publicKey;
+        } catch {}
+      }
+
+      if (recipientPubKey && userSecretKey) {
+        outgoingText = encryptMessage(outgoingText, recipientPubKey, userSecretKey, userPublicKey || undefined);
+      }
+
       const res = await mailApi.sendMail(
         {
           to: recipientInput.trim(),
           subject: subject.trim() || 'Conversation',
-          text: message.trim(),
+          text: outgoingText,
           files,
         },
         token
@@ -135,14 +152,14 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
           {/* Recipient Input with Live Verification */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              To (Phone Number or PhoneMail Address)
+              To (Phone Number or Email)
             </label>
             <div className="relative">
               <input
                 type="text"
                 value={recipientInput}
                 onChange={(e) => setRecipientInput(e.target.value)}
-                placeholder="+919876543211 or 9876543211@phonemail.com"
+                placeholder="9876543211 or recipient@example.com"
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
                 required
               />
@@ -160,7 +177,12 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
                 <span>
-                  Verified: <strong className="font-semibold">{verifiedUser.displayName}</strong> ({verifiedUser.email})
+                  Verified: <strong className="font-semibold">{getUserOrContactName(verifiedUser)}</strong>
+                  {(cleanEmailDisplay(verifiedUser.email) || formatPhoneNumber(verifiedUser.phone)) && (
+                    <span className="opacity-80 ml-1">
+                      ({cleanEmailDisplay(verifiedUser.email) || formatPhoneNumber(verifiedUser.phone)})
+                    </span>
+                  )}
                 </span>
               </div>
             )}

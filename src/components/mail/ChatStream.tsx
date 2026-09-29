@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MailThread, MailMessage, MailAttachment } from '../../lib/mailApi';
+import { getUserOrContactName, cleanEmailDisplay } from '../../lib/formatters';
 
 interface ChatStreamProps {
   thread: MailThread;
@@ -21,6 +22,9 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
   }, [messages]);
 
   const contact = thread.contact;
+  const contactName = getUserOrContactName(contact);
+  const contactAddress = cleanEmailDisplay(contact?.email);
+  const initials = contactName.slice(0, 2).toUpperCase();
 
   const formatMessageTime = (dateStr: string) => {
     try {
@@ -41,8 +45,18 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
       <div className="h-16 px-4 sm:px-6 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md flex items-center justify-between z-10">
         <div className="flex items-center space-x-3 min-w-0">
           <div className="relative flex-shrink-0">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-600/20">
-              {contact?.displayName ? contact.displayName.slice(0, 2).toUpperCase() : 'PM'}
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-600/20 relative overflow-hidden select-none">
+              <span>{initials}</span>
+              {contact?.profilePictureUrl && (
+                <img
+                  src={contact.profilePictureUrl}
+                  alt={contactName}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
             </div>
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
           </div>
@@ -50,15 +64,14 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
           <div className="min-w-0">
             <div className="flex items-center space-x-2">
               <h2 className="text-sm font-bold text-white truncate">
-                {contact?.displayName || contact?.phone || 'Contact'}
+                {contactName}
               </h2>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium hidden sm:inline-block">
-                PhoneMail SMTP
-              </span>
             </div>
-            <div className="text-[11px] text-slate-400 font-mono truncate">
-              {contact?.email || `${contact?.phone}@phonemail.com`}
-            </div>
+            {contactAddress && (
+              <div className="text-[11px] text-slate-400 font-mono truncate">
+                {contactAddress}
+              </div>
+            )}
           </div>
         </div>
 
@@ -73,17 +86,16 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
 
           <button
             onClick={() => setShowHeaders(!showHeaders)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition flex items-center space-x-1.5 ${
+            className={`p-2 rounded-xl text-xs font-medium border transition flex items-center justify-center cursor-pointer ${
               showHeaders
                 ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300'
-                : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
+                : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
             }`}
             title="Inspect RFC Email Headers"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="hidden sm:inline">Email Info</span>
           </button>
         </div>
       </div>
@@ -97,9 +109,8 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
             </span>
             <span className="text-slate-500">Transport: Self-Hosted SMTP (port 2525)</span>
           </div>
-          <div><strong className="text-slate-400">To:</strong> {contact?.email}</div>
+          <div><strong className="text-slate-400">To:</strong> {contactAddress}</div>
           <div><strong className="text-slate-400">Thread Subject:</strong> {thread.subject}</div>
-          <div><strong className="text-slate-400">Security:</strong> Closed-Loop E2E Verified Database Delivery</div>
         </div>
       )}
 
@@ -141,10 +152,12 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
                   {/* Sender attribution if incoming */}
                   {!isMine && (
                     <div className="text-[11px] font-bold text-indigo-400 mb-1 flex items-center space-x-1.5">
-                      <span>{msg.from.displayName || msg.from.phone}</span>
-                      <span className="text-[10px] text-slate-500 font-normal font-mono">
-                        &lt;{msg.fromEmail}&gt;
-                      </span>
+                      <span>{getUserOrContactName(msg.from)}</span>
+                      {cleanEmailDisplay(msg.fromEmail) && (
+                        <span className="text-[10px] text-slate-500 font-normal font-mono">
+                          &lt;{cleanEmailDisplay(msg.fromEmail)}&gt;
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -163,23 +176,23 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
                         const downloadUrl = `/api/mail/attachments/${att.gridFsId}`;
 
                         return isImg ? (
-                          <div key={att.id} className="rounded-xl overflow-hidden border border-white/10 group/img">
-                            <a href={downloadUrl} target="_blank" rel="noreferrer">
+                          <div key={att.id} className="rounded-2xl overflow-hidden border border-white/10 group/img relative cursor-pointer">
+                            <a href={downloadUrl} target="_blank" rel="noreferrer" className="cursor-pointer block">
                               <img
                                 src={downloadUrl}
                                 alt={att.filename}
-                                className="max-h-60 w-full object-cover hover:opacity-90 transition rounded-xl"
+                                className="max-h-60 w-full object-cover hover:scale-[1.02] transition-transform duration-300 rounded-2xl"
                               />
                             </a>
-                            <div className="p-1.5 bg-black/40 text-[10px] text-slate-200 flex items-center justify-between">
-                              <span className="truncate max-w-[180px]">{att.filename}</span>
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2.5 pt-6 text-[10px] text-slate-200 flex items-end justify-between pointer-events-none">
+                              <span className="truncate max-w-[180px] drop-shadow-sm font-medium">{att.filename}</span>
                               <a
                                 href={downloadUrl}
                                 download={att.filename}
-                                className="text-cyan-300 hover:underline flex items-center space-x-1"
+                                title={`Download ${att.filename}`}
+                                className="h-7 w-7 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition shadow-sm pointer-events-auto cursor-pointer"
                               >
-                                <span>Save</span>
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
                               </a>
@@ -218,18 +231,13 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
                     </div>
                   )}
 
-                  {/* Timestamp & Double Checkmarks */}
+                  {/* Message Timestamp */}
                   <div
                     className={`mt-1.5 flex items-center justify-end space-x-1 text-[10px] ${
                       isMine ? 'text-indigo-100/80' : 'text-slate-500'
                     }`}
                   >
                     <span className="font-mono">{formatMessageTime(msg.createdAt)}</span>
-                    {isMine && (
-                      <span className="font-bold text-cyan-200" title="Delivered via SMTP">
-                        ✓✓
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>

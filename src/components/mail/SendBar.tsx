@@ -35,7 +35,7 @@ export const SendBar: React.FC<SendBarProps> = ({
     if (!text.trim() && files.length === 0) return;
     if (isSending) return;
 
-    const messageText = text.trim() || (files.length > 0 ? '📎 Sent attachment' : '');
+    const messageText = text.trim() || (files.length > 0 ? 'Sent attachment' : '');
     const attachedFiles = [...files];
     const customSubject = subject.trim() || undefined;
 

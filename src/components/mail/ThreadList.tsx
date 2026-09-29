@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MailThread } from '../../lib/mailApi';
+import { getUserOrContactName } from '../../lib/formatters';
 
 interface ThreadListProps {
   threads: MailThread[];
@@ -82,12 +83,11 @@ export const ThreadList: React.FC<ThreadListProps> = ({
           <button
             onClick={onOpenNewChat}
             title="Compose New Mail (Chat)"
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-semibold text-xs shadow-md shadow-indigo-600/20 transition active:scale-95"
+            className="p-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-md shadow-indigo-600/20 transition active:scale-95 cursor-pointer"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
             </svg>
-            <span>New Chat</span>
           </button>
         </div>
 
@@ -112,7 +112,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
       </div>
 
       {/* Conversation Thread List (WhatsApp style) */}
-      <div className="flex-1 overflow-y-auto divide-y divide-slate-800/40">
+      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
         {isLoading && threads.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-xs flex flex-col items-center space-y-2">
             <div className="h-6 w-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -123,7 +123,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
             <p>No conversations found.</p>
             <button
               onClick={onOpenNewChat}
-              className="text-indigo-400 hover:text-indigo-300 font-medium underline"
+              className="text-indigo-400 hover:text-indigo-300 font-medium underline cursor-pointer"
             >
               Start your first conversation
             </button>
@@ -138,16 +138,26 @@ export const ThreadList: React.FC<ThreadListProps> = ({
               <div
                 key={thread.id}
                 onClick={() => onSelectThread(thread.id)}
-                className={`p-3.5 flex items-start space-x-3 cursor-pointer transition relative group ${
+                className={`p-3.5 rounded-2xl flex items-start space-x-3 cursor-pointer transition relative group ${
                   isActive
-                    ? 'bg-indigo-600/15 border-l-4 border-indigo-500 text-white'
+                    ? 'bg-indigo-600/20 ring-1 ring-indigo-500/50 text-white shadow-sm'
                     : 'hover:bg-slate-800/40 text-slate-300'
                 }`}
               >
                 {/* Contact Avatar */}
                 <div className="relative flex-shrink-0">
-                  <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-600/20">
-                    {initials}
+                  <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-indigo-600/20 relative overflow-hidden select-none">
+                    <span>{initials}</span>
+                    {contact?.profilePictureUrl && (
+                      <img
+                        src={contact.profilePictureUrl}
+                        alt={getUserOrContactName(contact)}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
                   </div>
                   <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-slate-900" />
                 </div>
@@ -156,7 +166,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-bold text-white truncate max-w-[170px]">
-                      {contact?.displayName || contact?.phone || 'Unknown Contact'}
+                      {getUserOrContactName(contact)}
                     </span>
                     <span className="text-[10px] text-slate-500 font-mono">
                       {formatTime(thread.lastMessageAt)}
@@ -170,7 +180,9 @@ export const ThreadList: React.FC<ThreadListProps> = ({
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] text-slate-400 truncate max-w-[190px]">
                       {thread.lastMessage?.hasAttachments && (
-                        <span className="text-cyan-400 mr-1 font-semibold">📎</span>
+                        <svg className="w-3 h-3 text-cyan-400 inline mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
                       )}
                       {thread.lastMessage?.text || 'No messages yet'}
                     </p>

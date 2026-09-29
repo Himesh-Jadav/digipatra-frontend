@@ -4,6 +4,9 @@ export interface User {
   phone: string;
   email: string;
   displayName: string;
+  name?: string;
+  dob?: string | null;
+  gender?: string | null;
   profilePictureUrl: string | null;
   hasSetPassword: boolean;
   createdVia: string;
@@ -59,6 +62,41 @@ export const api = {
     return handleResponse<SetupTokenResponse>(res);
   },
 
+  async startOtp(
+    phone: string,
+    purpose: 'signup' | 'forgot_password' | 'login' | 'generic' = 'signup',
+    channel: 'sms' | 'call' = 'sms'
+  ): Promise<{ success: boolean; channel: string; message: string }> {
+    const res = await fetch(`${API_BASE}/auth/otp/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, purpose, channel }),
+    });
+    return handleResponse<{ success: boolean; channel: string; message: string }>(res);
+  },
+
+  async verifyOtp(
+    phone: string,
+    code: string,
+    purpose: 'signup' | 'forgot_password' | 'login' | 'generic' = 'signup'
+  ): Promise<{ setupToken?: string; resetToken?: string; phone: string }> {
+    const res = await fetch(`${API_BASE}/auth/otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, code, purpose }),
+    });
+    return handleResponse<{ setupToken?: string; resetToken?: string; phone: string }>(res);
+  },
+
+  async resetPassword(resetToken: string, newPassword: string): Promise<AuthResponse> {
+    const res = await fetch(`${API_BASE}/auth/forgot-password/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetToken, newPassword }),
+    });
+    return handleResponse<AuthResponse>(res);
+  },
+
   async setPassword(setupToken: string, password: string): Promise<AuthResponse> {
     const res = await fetch(`${API_BASE}/auth/set-password`, {
       method: 'POST',
@@ -84,5 +122,40 @@ export const api = {
       },
     });
     return handleResponse<{ user: User }>(res);
+  },
+
+  async updateMe(
+    data: {
+      name?: string;
+      displayName?: string;
+      dob?: string | null;
+      gender?: string | null;
+      profilePictureUrl?: string | null;
+      publicKey?: string | null;
+    },
+    token: string
+  ): Promise<{ user: User }> {
+    const res = await fetch(`${API_BASE}/me`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ user: User }>(res);
+  },
+
+  async uploadAvatar(file: File, token: string): Promise<{ user: User; profilePictureUrl: string }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await fetch(`${API_BASE}/me/avatar`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    return handleResponse<{ user: User; profilePictureUrl: string }>(res);
   },
 };
